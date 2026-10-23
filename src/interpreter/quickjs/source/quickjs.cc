@@ -10610,8 +10610,8 @@ int JS_CheckGlobalVar(LEPUSContext *ctx, JSAtom prop) {
    flag = 2: normal variable write, strict check was done before
    flag = 3: add property in global var obj
 */
-static int JS_SetGlobalVar_RC(LEPUSContext *ctx, JSAtom prop, LEPUSValue val,
-                              int flag) {
+static force_inline int JS_SetGlobalVar_RC(LEPUSContext *ctx, JSAtom prop,
+                                         LEPUSValue val, int flag) {
   LEPUSObject *p;
   JSShapeProperty *prs;
   JSProperty *pr;
