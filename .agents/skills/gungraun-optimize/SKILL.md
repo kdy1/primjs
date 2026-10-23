@@ -1,12 +1,13 @@
 ---
 name: gungraun-optimize
-description: Profile and optimize PrimJS C/C++ code with Gungraun comparisons in kdy1/primjs GitHub Actions, then publish accepted optimizations as draft PRs to lynx-family/primjs. Use for measured PrimJS performance work or Gungraun regression investigation.
+description: Profile and optimize PrimJS C/C++ code with Gungraun comparisons in kdy1/primjs GitHub Actions, then obtain human approval for each accepted optimization before publishing its draft PR to lynx-family/primjs. Use for measured PrimJS performance work or Gungraun regression investigation.
 ---
 
 # Gungraun Optimize
 
 Use profiles to select one focused optimization, measure it without an experiment
-PR, and publish it only after the performance gate and correctness checks pass.
+PR, and publish it only after the performance gate and correctness checks pass
+and a human explicitly approves that individual upstream PR.
 Creating or editing this skill does not start an optimization run.
 
 Adapted from [swc-next's gungraun-optimize skill](https://github.com/swc-project/swc-next/tree/5e09b3300c62a8f1c120e5016b787cddbb6de423/.agents/skills/gungraun-optimize).
@@ -26,8 +27,11 @@ executable. It does not treat PrimJS as a Rust library or apply SWC AST rules.
   PRs. Start publication branches from upstream, not the fork's default branch.
 - Keep one focused optimization commit, with its correctness tests, per PR.
   Do not create experiment PRs or include rejected changes.
-- Invoke the installed `$create-pr` skill for publication. Supply explicit
-  repositories and draft state; never let it infer the target from `origin`.
+- Obtain explicit human approval for each upstream PR, including draft PRs.
+  Passing the performance gate or authorizing an optimization run does not
+  authorize upstream publication. Approval for one PR does not cover another.
+- After that approval, invoke the installed `$create-pr` skill for publication.
+  Supply explicit repositories and draft state; never let it infer the target from `origin`.
   If that skill is unavailable, retain the measured branch and report the
   missing publication dependency.
 
@@ -101,7 +105,7 @@ statistic. Counts must be positive and complete.
   evidence conflicts with the aggregate. Inconsistent repeats are inconclusive.
   Keep infrastructure failure distinct from a performance regression.
 
-## Publish accepted work
+## Prepare and approve each upstream PR
 
 Transfer only the accepted production change and correctness tests to a clean
 branch based on upstream. Inspect its full upstream diff and ancestry to exclude
@@ -110,8 +114,28 @@ source matches the measured source. Record measured and published SHAs. If a
 rebase, conflict resolution, or different base changes production contents,
 remeasure the actual publication revision before claiming the gate passed.
 
-Hand `$create-pr` the following facts:
+Before asking for approval, complete the implementation, correctness checks,
+performance comparisons, and publication branch preparation described above.
+Prepare the exact proposed title and body. Show the human the target repository
+and base, head branch and SHA, reviewable diff, title and body, CI evidence,
+performance gate outcome, correctness results, and any limitations or tradeoffs.
 
+Ask for explicit approval to create this individual draft PR in
+`lynx-family/primjs`, then wait. Do not create an upstream PR or hand publication
+to `$create-pr` while approval is pending. Keep the prepared branch and evidence
+available. A performance-tradeoff decision alone is not publication approval
+unless the human explicitly approves this prepared PR as well.
+
+Record the approval with the proposed PR's repository, base, head SHA and content.
+Reuse that approval for the same prepared PR; do not ask again without a change.
+If the implementation, target, or material PR content changes after approval,
+complete any required validation and obtain approval for the revised proposal
+before publication. If approval is declined, do not publish that PR.
+
+After approval, hand `$create-pr` the following facts:
+
+- The explicit human approval for this individual PR and the approved revision
+  and content.
 - Target `repository: lynx-family/primjs`, `headRepository: kdy1/primjs`, verified
   `baseBranch`, exact publication branch/SHA, absolute checkout, and `draft: true`.
 - One focused optimization and its effect on the measured hot path.
@@ -122,7 +146,7 @@ Hand `$create-pr` the following facts:
 - Verified issue references when applicable and required AI assistance disclosure.
   Follow current contribution guidance for commit labels and trailers.
 
-Publish each accepted independent optimization separately. Do not silently make
+Publish each approved independent optimization separately. Do not silently make
 later PRs include earlier unmerged changes. If a dependent PR stack is needed,
 resolve its cross-fork base strategy before publishing that layer; GitHub PR
 bases belong to the target repository. Register published PRs with the thread
