@@ -1,0 +1,70 @@
+name: Gungraun
+run-name: Gungraun ${{ inputs.base_ref || github.sha }} vs ${{ inputs.head_ref || github.sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_ref:
+        description: Full base commit SHA available in kdy1/primjs
+        required: true
+      head_ref:
+        description: Full head commit SHA available in kdy1/primjs
+        required: true
+      filter:
+        description: Literal case ID substring (empty runs all cases)
+        default: ''
+  push:
+    branches: ['kdy1/gungraun-optimize-skill', 't3/gungraun/**']
+    paths: ['.github/workflows/gungraun.yml', 'tools/gungraun/**']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gungraun-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  compare:
+    if: github.repository == 'kdy1/primjs'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    env:
+      BASE_SHA: ${{ inputs.base_ref || github.sha }}
+      HEAD_SHA: ${{ inputs.head_ref || github.sha }}
+      CASE_FILTER: ${{ inputs.filter }}
+      GUNGRAUN_COLOR: never
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate immutable revisions
+        run: |
+          [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]
+      - uses: actions/checkout@v4
+        with:
+          repository: kdy1/primjs
+          ref: ${{ env.HEAD_SHA }}
+          path: engine
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install measurement tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y valgrind
+          rustup toolchain install 1.95.0 --profile minimal
+          rustup default 1.95.0
+          cargo install gungraun-runner --version 0.20.0 --locked
+      - name: Build and compare
+        run: python3 tools/gungraun/compare.py engine "$RUNNER_TEMP/primjs-gungraun"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gungraun-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/primjs-gungraun
+          if-no-files-found: warn
+          retention-days: 30

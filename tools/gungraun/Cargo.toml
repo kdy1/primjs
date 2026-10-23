@@ -1,0 +1,12 @@
+[package]
+name = "primjs-gungraun"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dev-dependencies]
+gungraun = "=0.20.0"
+
+[[bench]]
+name = "qjs"
+harness = false
