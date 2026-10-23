@@ -10,7 +10,14 @@ repository permissions. It never creates or comments on PRs.
 The workflow has two triggers:
 
 - `workflow_dispatch` compares full `base_ref` and `head_ref` commit SHAs.
-  `filter` selects case IDs by literal substring; empty selects all three cases.
+  `filter` selects case IDs by literal substring; empty selects all cases.
+  `workloads` accepts a JSON array of repository-relative JS paths from the
+  workflow checkout. Empty uses every `tools/gungraun/fixtures/*.js` file.
+  Both revisions execute these same files. Files must run directly under `qjs`
+  without extra command-line arguments. Relative imports must resolve from the
+  selected source file. Use deterministic inputs and assertions in each file.
+  IDs are file stems with non-ASCII-alphanumeric characters replaced by `_`;
+  IDs must be unique, and `filter` matches these normalized IDs.
 - A push changing the harness or workflow on `kdy1/gungraun-optimize-skill` or
   `t3/gungraun/**` runs a same-SHA bootstrap check. It does not establish an
   optimization benefit. This lets the initial CI run before the workflow lands.
@@ -37,6 +44,15 @@ The build uses release mode with symbols, Linux x64, snapshot disabled,
 compatible memory management disabled, and tracing GC disabled. Do not use these
 results for paths that require those features or ARM64 assembly.
 
+The measured binary is `out/gungraun/exe.unstripped/qjs`, with DWARF debug
+information verified before execution. The normal `out/gungraun/qjs` is stripped
+by the Linux toolchain even when `symbol_level=2`. Profiles include all executed
+engine functions, startup, and teardown; they cannot cover code the selected
+workloads do not execute. Inlined functions may be attributed to their callers.
+The runner uses Ubuntu 24.04: Ubuntu 22.04's Valgrind 3.18.1 cannot read the
+pinned Clang toolchain's DWARF 5 information. Do not compare historical counts
+from a different runner or Valgrind installation as an optimization result.
+
 The three starter cases exercise arithmetic, object construction/property access,
 and string construction/slicing. Extend them with representative cases before
 optimizing another path. Freeze the new harness and run it against both unchanged
@@ -60,6 +76,10 @@ gh run view <run-id> --repo kdy1/primjs
 gh run download <run-id> --repo kdy1/primjs --dir <evidence-directory>
 ```
 
+To select custom workloads, also pass, for example:
+`-f workloads='["testing/quickjs/compiler/unit_test/json_parse.js"]'`.
+The paths refer to the fixed workflow checkout, not either engine checkout.
+
 Record dispatch time, workflow SHA and run ID. Never select the latest run
 without checking identity. Use bounded waits for that run. Each run has independent
 concurrency so incremental and cumulative runs cannot cancel one another.
@@ -73,6 +93,10 @@ needed evidence before expiration. Inspect:
   equal-frequency portfolio result and standard gate verdict.
 - `base-profiles/` and `head-profiles/`: Gungraun summaries and raw Callgrind
   profiles for annotation; `<revision>-<case>.log` contains runner output.
+  Each current profile also has `.inclusive-no.txt` (self costs) and
+  `.inclusive-yes.txt` (inclusive costs) reports covering all functions.
+- `base-qjs` and `head-qjs`: exact unstripped executables for offline inspection.
+  `metadata.json` records selected workload paths and SHA-256 hashes.
 - `base-args.gn` and `head-args.gn`: identical release configuration.
 
 The parser expects summary schema `7` from the pinned release. It rejects missing

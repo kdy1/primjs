@@ -13,6 +13,9 @@ on:
       filter:
         description: Literal case ID substring (empty runs all cases)
         default: ''
+      workloads:
+        description: JSON array of JS paths in the workflow checkout (empty uses fixtures)
+        default: ''
   push:
     branches: ['kdy1/gungraun-optimize-skill', 't3/gungraun/**']
     paths: ['.github/workflows/gungraun.yml', 'tools/gungraun/**']
@@ -27,12 +30,14 @@ concurrency:
 jobs:
   compare:
     if: github.repository == 'kdy1/primjs'
-    runs-on: ubuntu-22.04
+    # Ubuntu 22.04's Valgrind 3.18 cannot read this Clang toolchain's DWARF 5.
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
       BASE_SHA: ${{ inputs.base_ref || github.sha }}
       HEAD_SHA: ${{ inputs.head_ref || github.sha }}
       CASE_FILTER: ${{ inputs.filter }}
+      WORKLOADS: ${{ inputs.workloads }}
       GUNGRAUN_COLOR: never
     steps:
       - uses: actions/checkout@v4
